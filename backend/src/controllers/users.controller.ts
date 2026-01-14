@@ -2,10 +2,14 @@ import { Request, Response } from "express";
 import * as usersService from "../services/users.service";
 import { ApiError } from "../errors/api-error";
 
+export const getUsers = async (_req: Request, res: Response) => {
+  const users = await usersService.getAllUsers();
+  res.json(users);
+};
+
 export const getUserById = async (req: Request, res: Response) => {
   const { id } = req.params;
 
-  // ✅ защита от string[]
   if (typeof id !== "string") {
     throw ApiError.badRequest("Invalid user id");
   }

@@ -1,0 +1,37 @@
+import bcrypt from "bcrypt";
+import { db } from "../db";
+import { users } from "../db/schema";
+import { eq } from "drizzle-orm";
+import { ApiError } from "../errors/api-error";
+
+const SALT_ROUNDS = 10;
+
+export async function registerUser(email: string, password: string) {
+  // 1. Проверяем, есть ли пользователь
+  const existingUser = await db
+    .select()
+    .from(users)
+    .where(eq(users.email, email));
+
+  if (existingUser.length > 0) {
+    throw ApiError.badRequest("User already exists");
+  }
+
+  // 2. Хешируем пароль
+  const passwordHash = await bcrypt.hash(password, SALT_ROUNDS);
+
+  // 3. Сохраняем пользователя
+  const result = await db
+    .insert(users)
+    .values({
+      email,
+      passwordHash,
+    })
+    .returning({
+      id: users.id,
+      email: users.email,
+      createdAt: users.createdAt,
+    });
+
+  return result[0];
+}
