@@ -16,3 +16,18 @@ export const register = async (req: Request, res: Response) => {
 
   res.status(201).json(user);
 };
+
+export const login = async (req: Request, res: Response) => {
+  const { email, password } = req.body as {
+    email?: string;
+    password?: string;
+  };
+
+  if (typeof email !== "string" || typeof password !== "string") {
+    throw ApiError.badRequest("Email and password are required");
+  }
+
+  const user = await authService.loginUser(email, password);
+
+  res.json(user);
+};

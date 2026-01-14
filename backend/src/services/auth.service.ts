@@ -35,3 +35,34 @@ export async function registerUser(email: string, password: string) {
 
   return result[0];
 }
+
+export async function loginUser(email: string, password: string) {
+  // 1. Ищем пользователя
+  const result = await db
+    .select()
+    .from(users)
+    .where(eq(users.email, email));
+
+  const user = result[0];
+
+  if (!user) {
+    throw ApiError.badRequest("Invalid email or password");
+  }
+
+  // 2. Сравниваем пароль
+  const isPasswordValid = await bcrypt.compare(
+    password,
+    user.passwordHash
+  );
+
+  if (!isPasswordValid) {
+    throw ApiError.badRequest("Invalid email or password");
+  }
+
+  // 3. Возвращаем безопасные данные
+  return {
+    id: user.id,
+    email: user.email,
+    createdAt: user.createdAt,
+  };
+}
