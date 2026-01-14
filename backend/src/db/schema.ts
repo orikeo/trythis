@@ -6,6 +6,11 @@ import {
   text
 } from "drizzle-orm/pg-core";
 
+import { InferSelectModel, InferInsertModel } from "drizzle-orm";
+
+export type User = InferSelectModel<typeof users>;
+export type NewUser = InferInsertModel<typeof users>;
+
 export const users = pgTable("users", {
   id: uuid("id").defaultRandom().primaryKey(),
 
