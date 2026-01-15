@@ -8,6 +8,13 @@
       "when": 1768347043941,
       "tag": "0000_outgoing_stone_men",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1768507300662,
+      "tag": "0001_spooky_obadiah_stane",
+      "breakpoints": true
     }
   ]
 }

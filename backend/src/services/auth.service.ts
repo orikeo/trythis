@@ -1,32 +1,30 @@
 import bcrypt from "bcrypt";
-import { db } from "../db";
-import { users } from "../db/schema";
+import jwt, { SignOptions } from "jsonwebtoken";
 import { eq } from "drizzle-orm";
+import { v4 as uuidv4 } from "uuid";
+import { addDays } from "date-fns";
+
+import { db } from "../db";
+import { users, refreshTokens } from "../db/schema";
 import { ApiError } from "../errors/api-error";
 import { jwtConfig } from "../config/jwt";
-import jwt, { SignOptions } from "jsonwebtoken";
+import { authConfig } from "../config/auth";
 
-const SALT_ROUNDS = 10;
-
-
-
+/**
+ * Регистрация
+ */
 export async function registerUser(email: string, password: string) {
-  // 1. Проверяем, есть ли пользователь
-  const existingUser = await db
+  const existing = await db
     .select()
     .from(users)
     .where(eq(users.email, email));
 
-  if (existingUser.length > 0) {
+  if (existing.length > 0) {
     throw ApiError.badRequest("User already exists");
   }
-  
-  
 
-  // 2. Хешируем пароль
-  const passwordHash = await bcrypt.hash(password, SALT_ROUNDS);
+  const passwordHash = await bcrypt.hash(password, 10);
 
-  // 3. Сохраняем пользователя
   const result = await db
     .insert(users)
     .values({
@@ -42,8 +40,11 @@ export async function registerUser(email: string, password: string) {
   return result[0];
 }
 
+/**
+ * Логин
+ * Возвращает access + refresh
+ */
 export async function loginUser(email: string, password: string) {
-  // 1. Ищем пользователя
   const result = await db
     .select()
     .from(users)
@@ -55,29 +56,36 @@ export async function loginUser(email: string, password: string) {
     throw ApiError.badRequest("Invalid email or password");
   }
 
-  // 2. Проверяем пароль
-  const isPasswordValid = await bcrypt.compare(
-    password,
-    user.passwordHash
-  );
+  const valid = await bcrypt.compare(password, user.passwordHash);
 
-  if (!isPasswordValid) {
+  if (!valid) {
     throw ApiError.badRequest("Invalid email or password");
   }
 
-  // 3. ЯВНО объявляем options
+  // access token
   const signOptions: SignOptions = {
     expiresIn: jwtConfig.expiresIn,
   };
 
-  // 4. Генерируем JWT
   const accessToken = jwt.sign(
     { userId: user.id },
     jwtConfig.secret,
     signOptions
   );
 
-  // 5. Возвращаем результат
+  // refresh token
+  const refreshToken = uuidv4();
+  const refreshTokenExpiresAt = addDays(
+    new Date(),
+    authConfig.refreshTokenDays
+  );
+
+  await db.insert(refreshTokens).values({
+    userId: user.id,
+    token: refreshToken,
+    expiresAt: refreshTokenExpiresAt,
+  });
+
   return {
     user: {
       id: user.id,
@@ -85,5 +93,42 @@ export async function loginUser(email: string, password: string) {
       createdAt: user.createdAt,
     },
     accessToken,
+    refreshToken,
+    refreshTokenExpiresAt,
   };
+}
+
+/**
+ * Обновление access token
+ */
+export async function refreshAccessToken(refreshToken: string) {
+  const result = await db
+    .select()
+    .from(refreshTokens)
+    .where(eq(refreshTokens.token, refreshToken));
+
+  const token = result[0];
+
+  if (!token || token.expiresAt < new Date()) {
+    throw ApiError.unauthorized("Invalid refresh token");
+  }
+
+  const signOptions: SignOptions = {
+    expiresIn: jwtConfig.expiresIn,
+  };
+
+  return jwt.sign(
+    { userId: token.userId },
+    jwtConfig.secret,
+    signOptions
+  );
+}
+
+/**
+ * Logout
+ */
+export async function logout(refreshToken: string) {
+  await db
+    .delete(refreshTokens)
+    .where(eq(refreshTokens.token, refreshToken));
 }
