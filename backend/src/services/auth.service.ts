@@ -3,8 +3,12 @@ import { db } from "../db";
 import { users } from "../db/schema";
 import { eq } from "drizzle-orm";
 import { ApiError } from "../errors/api-error";
+import { jwtConfig } from "../config/jwt";
+import jwt, { SignOptions } from "jsonwebtoken";
 
 const SALT_ROUNDS = 10;
+
+
 
 export async function registerUser(email: string, password: string) {
   // 1. Проверяем, есть ли пользователь
@@ -16,6 +20,8 @@ export async function registerUser(email: string, password: string) {
   if (existingUser.length > 0) {
     throw ApiError.badRequest("User already exists");
   }
+  
+  
 
   // 2. Хешируем пароль
   const passwordHash = await bcrypt.hash(password, SALT_ROUNDS);
@@ -49,7 +55,7 @@ export async function loginUser(email: string, password: string) {
     throw ApiError.badRequest("Invalid email or password");
   }
 
-  // 2. Сравниваем пароль
+  // 2. Проверяем пароль
   const isPasswordValid = await bcrypt.compare(
     password,
     user.passwordHash
@@ -59,10 +65,25 @@ export async function loginUser(email: string, password: string) {
     throw ApiError.badRequest("Invalid email or password");
   }
 
-  // 3. Возвращаем безопасные данные
+  // 3. ЯВНО объявляем options
+  const signOptions: SignOptions = {
+    expiresIn: jwtConfig.expiresIn,
+  };
+
+  // 4. Генерируем JWT
+  const accessToken = jwt.sign(
+    { userId: user.id },
+    jwtConfig.secret,
+    signOptions
+  );
+
+  // 5. Возвращаем результат
   return {
-    id: user.id,
-    email: user.email,
-    createdAt: user.createdAt,
+    user: {
+      id: user.id,
+      email: user.email,
+      createdAt: user.createdAt,
+    },
+    accessToken,
   };
 }
