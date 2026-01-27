@@ -27,7 +27,42 @@ export const login = async (req: Request, res: Response) => {
     throw ApiError.badRequest("Email and password are required");
   }
 
-  const user = await authService.loginUser(email, password);
+  const {
+    user,
+    accessToken,
+    refreshToken,
+    refreshTokenExpiresAt,
+  } = await authService.loginUser(email, password);
 
-  res.json(user);
+  res.cookie("refreshToken", refreshToken, {
+    httpOnly: true,
+    secure: false,
+    sameSite: "strict",
+    expires: refreshTokenExpiresAt,
+  });
+
+  res.json({ user, accessToken });
+};
+
+export const refresh = async (req: Request, res: Response) => {
+  const refreshToken = req.cookies?.refreshToken;
+
+  if (!refreshToken) {
+    throw ApiError.unauthorized("No refresh token");
+  }
+
+  const accessToken = await authService.refreshAccessToken(refreshToken);
+
+  res.json({ accessToken });
+};
+
+export const logout = async (req: Request, res: Response) => {
+  const refreshToken = req.cookies?.refreshToken;
+
+  if (refreshToken) {
+    await authService.logout(refreshToken);
+  }
+
+  res.clearCookie("refreshToken");
+  res.status(204).send();
 };

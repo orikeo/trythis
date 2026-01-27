@@ -15,6 +15,13 @@
       "when": 1768507300662,
       "tag": "0001_spooky_obadiah_stane",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1769471915878,
+      "tag": "0002_rapid_the_enforcers",
+      "breakpoints": true
     }
   ]
 }

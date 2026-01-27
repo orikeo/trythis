@@ -3,7 +3,8 @@ import {
   uuid,
   varchar,
   timestamp,
-  text
+  text,
+  numeric
 } from "drizzle-orm/pg-core";
 
 import { InferSelectModel, InferInsertModel } from "drizzle-orm";
@@ -54,6 +55,23 @@ export const refreshTokens = pgTable("refresh_tokens", {
   token: uuid("token").notNull().unique(),
 
   expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .defaultNow()
+    .notNull(),
+});
+
+export const weightEntries = pgTable("weight_entries", {
+  id: uuid("id").defaultRandom().primaryKey(),
+
+  userId: uuid("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+
+  weight: numeric("weight", { precision: 5, scale: 2 }).notNull(),
+  // пример: 123.45 кг
+
+  note: varchar("note", { length: 255 }),
 
   createdAt: timestamp("created_at", { withTimezone: true })
     .defaultNow()
